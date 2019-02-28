@@ -1,0 +1,11 @@
+select ex_market_id, ex_time_id, open, sell_coin, buy_coin, p1.usd as sell_cost, p2.usd as buy_cost, p1.usd/p2.usd as price_ratio, abs(1 - (p1.usd/p2.usd)/open) as arbitrage
+	from binance.exchanges ex 
+	join binance.markets mk on mk.market_id = ex_market_id
+	join binance.prices p1 on p1.pr_symbol = mk.sell_coin and p1.pr_time_id = ex.ex_time_id
+	join binance.prices p2 on p2.pr_symbol = mk.buy_coin and p2.pr_time_id = ex.ex_time_id
+	where p1.usd > 0 and p2.usd > 0
+	order by abs(1 - (p1.usd/p2.usd)/open) desc
+	limit 15						
+																	
+
+																	
