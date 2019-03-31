@@ -455,49 +455,49 @@ def filter_potentials(psql):
     bnb_traingle = sorted(bnb_traingle.items(), key=operator.itemgetter(1), reverse = True)
     bnb_potentials = [('BNB', i[0], i[1]) for i in bnb_traingle if i[1] >= .005]
     
-    pax_script = "select ex_market_id, ex_time_id, open, sell_coin, buy_coin \
-    	from binance.exchanges ex \
-    	join binance.markets mk on mk.market_id = ex_market_id \
-    	where ex_time_id = (select max(t2.time_id) from binance.times t2) \
-    		and buy_coin = 'PAX'"
-    pax_prices = pg_query(psql.client, pax_script)
-    pax_prices.columns = ['market_id', 'time_id', 'open', 'sell_coin', 'buy_coin']
-    pax_conv = {k:float(v) for k,v in pax_prices[['sell_coin', 'open']].values}
-    
-    eth_pax = pax_conv['ETH']
-    pax_conv.pop('ETH')
-
-    pax_traingle = {}
-    for coin_2_name, coin_2_eth_price in eth_conv.items():
-        if coin_2_name in pax_conv.keys():
-            coin_2_pax_price = pax_conv[coin_2_name]
-            pax_arb = ((1/coin_2_eth_price)*coin_2_pax_price)/eth_pax
-            pax_traingle[coin_2_name] = abs(1 - pax_arb)
-            
-    pax_traingle = sorted(pax_traingle.items(), key=operator.itemgetter(1), reverse = True)
-    pax_potentials = [('PAX', i[0], i[1]) for i in pax_traingle if i[1] >= .005]
-    
-    tusd_script = "select ex_market_id, ex_time_id, open, sell_coin, buy_coin \
-    	from binance.exchanges ex \
-    	join binance.markets mk on mk.market_id = ex_market_id \
-    	where ex_time_id = (select max(t2.time_id) from binance.times t2) \
-    		and buy_coin = 'TUSD'"
-    tusd_prices = pg_query(psql.client, tusd_script)
-    tusd_prices.columns = ['market_id', 'time_id', 'open', 'sell_coin', 'buy_coin']
-    tusd_conv = {k:float(v) for k,v in tusd_prices[['sell_coin', 'open']].values}
-    
-    eth_tusd = 1/eth_conv['TUSD']
-
-    tusd_traingle = {}
-    for coin_2_name, coin_2_eth_price in eth_conv.items():
-        if coin_2_name in tusd_conv.keys():
-            coin_2_tusd_price = tusd_conv[coin_2_name]
-            tusd_arb = ((1/coin_2_eth_price)*coin_2_tusd_price)/eth_tusd
-            tusd_traingle[coin_2_name] = abs(1 - tusd_arb)
-            
-    tusd_traingle = sorted(tusd_traingle.items(), key=operator.itemgetter(1), reverse = True)
-    tusd_potentials = [('TUSD', i[0], i[1]) for i in tusd_traingle if i[1] >= .005]    
-    
+#    pax_script = "select ex_market_id, ex_time_id, open, sell_coin, buy_coin \
+#    	from binance.exchanges ex \
+#    	join binance.markets mk on mk.market_id = ex_market_id \
+#    	where ex_time_id = (select max(t2.time_id) from binance.times t2) \
+#    		and buy_coin = 'PAX'"
+#    pax_prices = pg_query(psql.client, pax_script)
+#    pax_prices.columns = ['market_id', 'time_id', 'open', 'sell_coin', 'buy_coin']
+#    pax_conv = {k:float(v) for k,v in pax_prices[['sell_coin', 'open']].values}
+#    
+#    eth_pax = pax_conv['ETH']
+#    pax_conv.pop('ETH')
+#
+#    pax_traingle = {}
+#    for coin_2_name, coin_2_eth_price in eth_conv.items():
+#        if coin_2_name in pax_conv.keys():
+#            coin_2_pax_price = pax_conv[coin_2_name]
+#            pax_arb = ((1/coin_2_eth_price)*coin_2_pax_price)/eth_pax
+#            pax_traingle[coin_2_name] = abs(1 - pax_arb)
+#            
+#    pax_traingle = sorted(pax_traingle.items(), key=operator.itemgetter(1), reverse = True)
+#    pax_potentials = [('PAX', i[0], i[1]) for i in pax_traingle if i[1] >= .005]
+#    
+#    tusd_script = "select ex_market_id, ex_time_id, open, sell_coin, buy_coin \
+#    	from binance.exchanges ex \
+#    	join binance.markets mk on mk.market_id = ex_market_id \
+#    	where ex_time_id = (select max(t2.time_id) from binance.times t2) \
+#    		and buy_coin = 'TUSD'"
+#    tusd_prices = pg_query(psql.client, tusd_script)
+#    tusd_prices.columns = ['market_id', 'time_id', 'open', 'sell_coin', 'buy_coin']
+#    tusd_conv = {k:float(v) for k,v in tusd_prices[['sell_coin', 'open']].values}
+#    
+#    eth_tusd = 1/eth_conv['TUSD']
+#
+#    tusd_traingle = {}
+#    for coin_2_name, coin_2_eth_price in eth_conv.items():
+#        if coin_2_name in tusd_conv.keys():
+#            coin_2_tusd_price = tusd_conv[coin_2_name]
+#            tusd_arb = ((1/coin_2_eth_price)*coin_2_tusd_price)/eth_tusd
+#            tusd_traingle[coin_2_name] = abs(1 - tusd_arb)
+#            
+#    tusd_traingle = sorted(tusd_traingle.items(), key=operator.itemgetter(1), reverse = True)
+#    tusd_potentials = [('TUSD', i[0], i[1]) for i in tusd_traingle if i[1] >= .005]    
+#    
 #    bnb_btc = btc_conv['BNB']
 #    bnb_btc_square = {}
 #    for coin_2_name, coin_2_eth_price in eth_conv.items():
@@ -509,7 +509,7 @@ def filter_potentials(psql):
 #    bnb_btc_square = sorted(bnb_btc_square.items(), key=operator.itemgetter(1), reverse = True)
 #    bnb_btc_potentials = [(['BNB', 'BTC'], i[0], i[1]) for i in bnb_btc_square if i[1] >= .005]
 
-    _potentials = btc_potentials + bnb_potentials + pax_potentials + tusd_potentials# + bnb_btc_potentials
+    _potentials = btc_potentials + bnb_potentials # + pax_potentials + tusd_potentials# + bnb_btc_potentials
 
     return(_potentials)
 
