@@ -161,10 +161,80 @@ prices = ['DROP TABLE IF EXISTS binance.prices;',
             TABLESPACE pg_default;',
             ]
 
+twitter_users = ['DROP TABLE IF EXISTS binance.twitter_users;',
+           
+           'CREATE TABLE binance.twitter_users \
+            (user_id bigint NOT NULL, \
+            followers integer NOT NULL, \
+            verified boolean NOT NULL, \
+            CONSTRAINT user_pkey PRIMARY KEY (user_id)) \
+            WITH (OIDS = FALSE) \
+            TABLESPACE pg_default;'
+            
+            'DROP INDEX IF EXISTS binance.users_user_idx;',
+            'CREATE INDEX users_user_idx \
+            ON binance.twitter_users USING btree \
+            (user_id) \
+            TABLESPACE pg_default;',
+            ]
 
+twitter_tweets = ['DROP TABLE IF EXISTS binance.twitter_tweets;',
+           
+           'CREATE TABLE binance.twitter_tweets \
+            (tweet_id bigint NOT NULL, \
+            user_id bigint NOT NULL, \
+            rt integer NOT NULL, \
+            fav integer NOT NULL, \
+            timestamp timestamp NOT NULL, \
+            content text NOT NULL, \
+            CONSTRAINT tweet_pkey PRIMARY KEY (tweet_id), \
+            CONSTRAINT tweet_user_fk FOREIGN KEY (user_id) \
+            REFERENCES binance.twitter_users (user_id)) \
+            WITH (OIDS = FALSE) \
+            TABLESPACE pg_default;'
+            
+            'DROP INDEX IF EXISTS binance.tweets_tweet_idx;',
+            'CREATE INDEX tweets_tweet_idx \
+            ON binance.twitter_tweets USING btree \
+            (tweet_id) \
+            TABLESPACE pg_default;',
+            ]
+
+
+twitter_nlu = ['DROP TABLE IF EXISTS binance.twitter_nlu;',
+           
+           'CREATE TABLE binance.twitter_nlu \
+            (nlu_id int NOT NULL, \
+            tweet_id bigint NOT NULL, \
+            coin_id integer NOT NULL, \
+            sentiment real NOT NULL, \
+            sadness real NOT NULL, \
+            joy real NOT NULL, \
+            fear real NOT NULL, \
+            disgust real NOT NULL, \
+            anger real NOT NULL, \
+            CONSTRAINT nlu_pkey PRIMARY KEY (nlu_id), \
+            CONSTRAINT nlu_tweet_fk FOREIGN KEY (tweet_id) \
+            REFERENCES binance.twitter_tweets (tweet_id), \
+            CONSTRAINT nlu_coin_fk FOREIGN KEY (coin_id) \
+            REFERENCES binance.coins (coin_id)) \
+            WITH (OIDS = FALSE) \
+            TABLESPACE pg_default;'
+            
+            'DROP INDEX IF EXISTS binance.nlu_nlu_idx;',
+            'CREATE INDEX nlu_nlu_idx \
+            ON binance.twitter_nlu USING btree \
+            (nlu_id) \
+            TABLESPACE pg_default;',
+            ]
+
+    
 create_tables = {}
 create_tables['coins'] = coins
 create_tables['markets'] = markets
 create_tables['times'] = times
 create_tables['exchanges'] = exchanges
 create_tables['prices'] = prices
+create_tables['twitter_users'] = twitter_users
+create_tables['twitter_tweets'] = twitter_tweets
+create_tables['twitter_nlu'] = twitter_nlu

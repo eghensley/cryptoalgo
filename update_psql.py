@@ -22,6 +22,11 @@ import numpy as np
 from progress_bar import progress
 import time as tm
 import operator 
+from watson_developer_cloud import NaturalLanguageUnderstandingV1
+from watson_developer_cloud.natural_language_understanding_v1 import Features, SentimentOptions, EmotionOptions
+import re
+import tweepy
+import _config
 
 def pg_create_table(cur, table_name):  
 #    cur, table_name = _psql, 
@@ -52,12 +57,12 @@ def pg_insert(cur, script):
         
 
 def _det_current_(_psql, field):
-    try: 
-         _data = pg_query(_psql.client, 'select %s_id, symbol from binance.%s;' % (field[:-1], field))
-    except:
-        _psql.reset_db_con()
-        pg_create_table(_psql.client, field)
-        _data = pg_query(_psql.client, 'select %s_id, symbol from binance.%s;' % (field[:-1], field))
+#    try: 
+    _data = pg_query(_psql.client, 'select %s_id, symbol from binance.%s;' % (field[:-1], field))
+#    except:
+#        _psql.reset_db_con()
+#        pg_create_table(_psql.client, field)
+#        _data = pg_query(_psql.client, 'select %s_id, symbol from binance.%s;' % (field[:-1], field))
     if len(_data) > 0:
         current_ = set(_data[1].values)
         next_idx = np.max(_data[0]) + 1
@@ -117,14 +122,14 @@ def pop_markets(psql, prices):
     print('\n')
 
 
-def _det_current_times_(_psql,):
+def _det_current_times_(_psql):
 #    _psql = PSQL
-    try: 
-         _data = pg_query(_psql.client, 'select time_id, full_time from binance.times as t1 where t1.full_time = (select max(t2.full_time) from binance.times as t2);')
-    except:
-        _psql.reset_db_con()
-        pg_create_table(_psql.client, 'times')
-        _data = pg_query(_psql.client, 'select time_id, full_time from binance.times as t1 where t1.full_time = (select max(t2.full_time) from binance.times as t2);')
+#    try: 
+    _data = pg_query(_psql.client, 'select time_id, full_time from binance.times as t1 where t1.full_time = (select max(t2.full_time) from binance.times as t2);')
+#    except:
+#        _psql.reset_db_con()
+#        pg_create_table(_psql.client, 'times')
+#        _data = pg_query(_psql.client, 'select time_id, full_time from binance.times as t1 where t1.full_time = (select max(t2.full_time) from binance.times as t2);')
     if len(_data) > 0:
         current_ = datetime.strptime(str(_data[1].iloc[0]), '%Y-%m-%d %H:%M:%S') 
         next_idx = _data[0].values[0] + 1
@@ -168,12 +173,12 @@ def pop_times(psql, _last_time):
 
 def _det_current_exchanges(_psql):
 #    _psql = PSQL
-    try: 
-         _data = pg_query(_psql.client, 'select ex_market_id, max(ex_time_id) from binance.exchanges group by ex_market_id')
-    except:
-        _psql.reset_db_con()
-        pg_create_table(_psql.client, 'exchanges')
-        _data = pg_query(_psql.client, 'select ex_market_id, max(ex_time_id) from binance.exchanges group by ex_market_id')
+#    try: 
+    _data = pg_query(_psql.client, 'select ex_market_id, max(ex_time_id) from binance.exchanges group by ex_market_id')
+#    except:
+#        _psql.reset_db_con()
+#        pg_create_table(_psql.client, 'exchanges')
+#        _data = pg_query(_psql.client, 'select ex_market_id, max(ex_time_id) from binance.exchanges group by ex_market_id')
     if len(_data) > 0:
         current_ = {k:v for k,v in _data.values}
     else:
@@ -183,12 +188,12 @@ def _det_current_exchanges(_psql):
 
 def _det_current_prices(_psql):
 #    _psql = PSQL
-    try: 
-         _data = pg_query(_psql.client, 'select ex_market_id, max(ex_time_id) from binance.exchanges group by ex_market_id')
-    except:
-        _psql.reset_db_con()
-        pg_create_table(_psql.client, 'prices')
-        _data = pg_query(_psql.client, 'select ex_market_id, max(ex_time_id) from binance.exchanges group by ex_market_id')
+#    try: 
+    _data = pg_query(_psql.client, 'select ex_market_id, max(ex_time_id) from binance.exchanges group by ex_market_id')
+#    except:
+#        _psql.reset_db_con()
+#        pg_create_table(_psql.client, 'prices')
+#        _data = pg_query(_psql.client, 'select ex_market_id, max(ex_time_id) from binance.exchanges group by ex_market_id')
     if len(_data) > 0:
         current_ = {k:v for k,v in _data.values}
     else:
@@ -513,6 +518,160 @@ def filter_potentials(psql):
 
     return(_potentials)
 
+
+
+def clean_tweet(tweet): 
+    ''' 
+    Utility function to clean tweet text by removing links, special characters 
+    using simple regex statements. 
+    '''
+    return ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)", " ", tweet).split()).lower() 
+  
+
+def pull_tweets(psql, twitter):
+    page = requests.get('https://coinmarketcap.com/all/views/all/')
+    tree = html.fromstring(page.content)
+    coin_name_conv = {v:k for k,v in zip(tree.xpath('//*[@id="currencies-all"]/tbody/tr/td[2]/a/text()'), tree.xpath('//*[@id="currencies-all"]/tbody/tr/td[3]/text()'))}
+
+    coins = pg_query(psql.client, 'SELECT * FROM binance.coins')
+    use_coins = {i: coin_name_conv[i] for i in coins[1].values if i in coin_name_conv.keys()}
+    coin_id_conv = {v:k for k,v in coins.values}
+        
+    coin_num = 0
+    total_coins = len(use_coins.keys())
+    tweets = []
+    for symbol, name in use_coins.items():
+        progress(coin_num, total_coins, status = symbol)
+        fetched_tweets = twitter.search(q = '%s|%s' % (symbol.lower(), name.lower()), count = 10, tweet_mode='extended')
+        for tweet in fetched_tweets: 
+            # empty dictionary to store required params of a tweet   
+            parsed_tweet = {} 
+            
+            tweet_data = tweet._json
+            
+            if 'retweeted_status' in tweet_data.keys():
+                tweet_data = tweet_data['retweeted_status']
+            
+            parsed_tweet['text'] = clean_tweet(tweet_data['full_text'])
+            parsed_tweet['id'] = tweet_data['id']
+            parsed_tweet['rt'] = tweet_data['retweet_count']
+            parsed_tweet['fav'] = tweet_data['favorite_count']
+            parsed_tweet['user'] = tweet_data['user']['id']
+            parsed_tweet['verified'] = tweet_data['user']['verified']
+            parsed_tweet['followers'] = tweet_data['user']['followers_count']
+            parsed_tweet['datetime'] = datetime.strptime(''.join([' '.join(i.split(' ')[1:]) for i in tweet_data['created_at'].split('+')]), '%b %d %H:%M:%S %Y')        
+            tweets.append(parsed_tweet)
+        coin_num += 1
+    return(tweets, coin_id_conv, use_coins)
+
+
+def _det_current_twit(_psql, field):
+#    _psql, field = PSQL, 'user'
+    _data = pg_query(_psql.client, 'select %s_id from binance.twitter_%ss;' % (field, field))
+    if len(_data) > 0:
+        current_ = set(_data[0].values)
+    else:
+        current_ = set([])
+    return(current_)
+
+
+def _det_current_nlu(_psql):
+    _data = pg_query(_psql.client, 'select max(nlu_id) from binance.twitter_nlu;').values[0][0]
+    if _data is None:
+        current = 0
+    else:
+        current = _data + 1
+    return(current)
+
+
+def nlu_insert(nlu_tweet_data, nlu, _psql_, _coin_id_conv, _use_coins):
+#    tweet_data = pg_query(PSQL.client, 'select tweet_id, content from binance.twitter_tweets;')
+#    nlus = pg_query(PSQL.client, 'select tweet_id from binance.twitter_nlu;')
+#    nlus = list(set(nlus[0].values))
+#    tweet_idx = [i for i in tweet_data[0] if i not in nlus]
+#    tweet_data = tweet_data.set_index(0).loc[tweet_idx].reset_index()
+#    nlu_tweet_data, nlu, _psql_, _coin_id_conv, _use_coins = tweet_data[[0,5]], NLU, PSQL, coin_id_conv, use_coins
+#    
+    matches = {}
+    for tweet_id, content in nlu_tweet_data[[0,5]].values:
+        matches[tweet_id] = {}
+        for symbol, name in _use_coins.items():
+            sym_name_match = []
+            if name.lower() in content:
+                sym_name_match.append(name.lower())
+            if symbol.lower() in content:
+                sym_name_match.append(symbol.lower())
+            if len(sym_name_match) > 0:
+                matches[tweet_id][symbol] = sym_name_match
+                 
+    nlu_idx = _det_current_nlu(_psql_)            
+    indexed_tweet_data = nlu_tweet_data.set_index(0)      
+    tweet_num = 0
+    total_tweets = len(matches.keys())
+    for k,v in matches.items():
+        progress(tweet_num, total_tweets)
+        tweet_num += 1
+        targets = []
+        for vv in v.values():
+            targets += vv
+        try:
+            nlu_output = nlu.analyze(text=indexed_tweet_data[5].loc[k], features = Features(emotion=EmotionOptions(targets=targets), sentiment=SentimentOptions(targets=targets))).result
+        except:
+            continue
+    
+        coin_output = {}
+        all_sentiment = nlu_output['sentiment']['targets']
+        try:
+            all_emotion = nlu_output['emotion']['targets']
+        except:
+            continue
+    
+        for coin, names in v.items():
+            coin_nlu = {}
+            if len([i for i in all_sentiment if i['text'] in names]) == 0:
+                continue
+            if len([i for i in all_emotion if i['text'] in names]) == 0:
+                continue
+            coin_nlu['sentiment'] = np.mean([i['score'] for i in all_sentiment if i['text'] in names])
+            coin_nlu['sadness'] = np.mean([i['emotion']['sadness'] for i in all_emotion if i['text'] in names])
+            coin_nlu['joy'] = np.mean([i['emotion']['joy'] for i in all_emotion if i['text'] in names])
+            coin_nlu['fear'] = np.mean([i['emotion']['fear'] for i in all_emotion if i['text'] in names])
+            coin_nlu['disgust'] = np.mean([i['emotion']['disgust'] for i in all_emotion if i['text'] in names])
+            coin_nlu['anger'] = np.mean([i['emotion']['anger'] for i in all_emotion if i['text'] in names])
+            coin_output[coin] = coin_nlu  
+            
+        for nlu_coin, nlu_values in coin_output.items():
+            script = "insert into binance.twitter_nlu (nlu_id, tweet_id, coin_id, sentiment, sadness, joy, fear, disgust, anger) VALUES (%i, %i, %i, %f, %f, %f, %f, %f, %f)" % (nlu_idx, k, _coin_id_conv[nlu_coin], nlu_values['sentiment'], nlu_values['sadness'], nlu_values['joy'], nlu_values['fear'], nlu_values['disgust'], nlu_values['anger'])
+            pg_insert(_psql_.client, script)
+            nlu_idx += 1
+    
+    
+def insert_twitter(psql, twit, _nlu):   
+#    psql, twit, _nlu = PSQL, TWITTER, NLU
+    tweets, coin_id_conv, use_coins = pull_tweets(psql, twit)
+    user_data = pd.DataFrame([[i['user'], i['followers'], i['verified']] for i in tweets]).drop_duplicates()
+    current_users = _det_current_twit(psql, 'user')
+    keep_users = [i for i in user_data[0].values if i not in current_users]
+    user_data = user_data.set_index(0).loc[keep_users].reset_index()
+    print('%i new users' % (len(user_data)))
+    for user_id, followers, verified in user_data.values:
+        script = "insert into binance.twitter_users (user_id, followers, verified) VALUES (%i, %i, %s)" % (user_id, followers, verified)
+        pg_insert(psql.client, script)
+
+    tweet_data = pd.DataFrame([[i['id'], i['user'], i['rt'], i['fav'], i['datetime'], i['text']] for i in tweets]).drop_duplicates()
+    current_tweets = _det_current_twit(psql, 'tweet')
+    keep_tweets = [i for i in tweet_data[0].values if i not in current_tweets]
+    keep_tweets = list(set(keep_tweets))
+    tweet_data = tweet_data.set_index(0).loc[keep_tweets].reset_index()
+    print('%i new tweets' % (len(tweet_data)))
+    
+    for tweet_id, user_id, rt, fav, ts, text in tweet_data.values:
+        script = "insert into binance.twitter_tweets (tweet_id, user_id, rt, fav, timestamp, content) VALUES (%i, %i, %i, %i, '%s', '%s')" % (tweet_id, user_id, rt, fav, ts, text)
+        pg_insert(psql.client, script)
+    
+    return(tweet_data, coin_id_conv, use_coins)
+
+
 def find_arb():
     next_update = floor_dt(datetime.now(), timedelta(minutes=30))
     dt_until_update = next_update - datetime.now()
@@ -557,6 +716,11 @@ def find_arb():
 def update():
     PSQL = db_connection('psql')
     BINANCE = binance_connection()
+    NLU = NaturalLanguageUnderstandingV1(version=_config.nlu_credentials["version"], username=_config.nlu_credentials["username"],
+                                            password=_config.nlu_credentials["password"])
+    NLU.set_default_headers({'x-watson-learning-opt-out' : "true"})
+    auth = tweepy.OAuthHandler(_config.twitter_key, _config.twitter_secret)
+    TWITTER = tweepy.API(auth)
     
     page = requests.get('https://info.binance.com/en/all')
     tree = html.fromstring(page.content)
@@ -573,6 +737,9 @@ def update():
     CURRENT_MKT_DATA, MRKT_CONV, TIME_CONV = conversion_data(PSQL)
     
     pop_exchanges(PSQL, LAST_TIME, PRICES, MRKT_CONV, CURRENT_MKT_DATA, TIME_CONV, BINANCE)
+
+    tweet_data, coin_id_conv, use_coins = insert_twitter(PSQL, TWITTER, NLU)
+    nlu_insert(tweet_data[[0,1]], NLU, PSQL, coin_id_conv, use_coins)
     
 #    pop_prices(PSQL, TIME_CONV, COINS)
     
@@ -585,6 +752,11 @@ def update():
     CURRENT_MKT_DATA = None
     MRKT_CONV = None
     TIME_CONV = None
+    TWITTER = None
+    NLU = None
+    tweet_data = None
+    coin_id_conv = None
+    use_coins = None
         
 
 if __name__ == '__main__':
@@ -598,7 +770,7 @@ if __name__ == '__main__':
     if cli:
         update()
         while True:
-            find_arb()
+#            find_arb()
                 
 #            tm.sleep(seconds_before_update)
             update()
