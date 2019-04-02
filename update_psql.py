@@ -713,8 +713,12 @@ def find_arb():
     seconds_before_update = None
             
 
-def update():
+def update():    
     PSQL = db_connection('psql')
+    next_update = floor_dt(datetime.now(), timedelta(minutes=30))
+    dt_until_update = next_update - datetime.now()
+    seconds_before_update = dt_until_update.total_seconds()
+    tm.sleep(seconds_before_update)
     BINANCE = binance_connection()
     NLU = NaturalLanguageUnderstandingV1(version=_config.nlu_credentials["version"], username=_config.nlu_credentials["username"],
                                             password=_config.nlu_credentials["password"])
