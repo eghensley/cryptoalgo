@@ -739,7 +739,7 @@ def update():
     pop_exchanges(PSQL, LAST_TIME, PRICES, MRKT_CONV, CURRENT_MKT_DATA, TIME_CONV, BINANCE)
 
     tweet_data, coin_id_conv, use_coins = insert_twitter(PSQL, TWITTER, NLU)
-    nlu_insert(tweet_data[[0,1]], NLU, PSQL, coin_id_conv, use_coins)
+#    nlu_insert(tweet_data[[0,1]], NLU, PSQL, coin_id_conv, use_coins)
     
 #    pop_prices(PSQL, TIME_CONV, COINS)
     
