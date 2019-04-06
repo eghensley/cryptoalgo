@@ -655,9 +655,12 @@ def insert_twitter(psql, twit, _nlu):
     user_data = user_data.set_index(0).loc[keep_users].reset_index()
     print('%i new users' % (len(user_data)))
     for user_id, followers, verified in user_data.values:
-        script = "insert into binance.twitter_users (user_id, followers, verified) VALUES (%i, %i, %s)" % (user_id, followers, verified)
-        pg_insert(psql.client, script)
-
+        try:
+            script = "insert into binance.twitter_users (user_id, followers, verified) VALUES (%i, %i, %s)" % (user_id, followers, verified)
+            pg_insert(psql.client, script)
+        except:
+            continue
+        
     tweet_data = pd.DataFrame([[i['id'], i['user'], i['rt'], i['fav'], i['datetime'], i['text']] for i in tweets]).drop_duplicates()
     current_tweets = _det_current_twit(psql, 'tweet')
     keep_tweets = [i for i in tweet_data[0].values if i not in current_tweets]
@@ -666,8 +669,11 @@ def insert_twitter(psql, twit, _nlu):
     print('%i new tweets' % (len(tweet_data)))
     
     for tweet_id, user_id, rt, fav, ts, text in tweet_data.values:
-        script = "insert into binance.twitter_tweets (tweet_id, user_id, rt, fav, timestamp, content) VALUES (%i, %i, %i, %i, '%s', '%s')" % (tweet_id, user_id, rt, fav, ts, text)
-        pg_insert(psql.client, script)
+        try:
+            script = "insert into binance.twitter_tweets (tweet_id, user_id, rt, fav, timestamp, content) VALUES (%i, %i, %i, %i, '%s', '%s')" % (tweet_id, user_id, rt, fav, ts, text)
+            pg_insert(psql.client, script)
+        except:
+            continue
     
     return(tweet_data, coin_id_conv, use_coins)
 
